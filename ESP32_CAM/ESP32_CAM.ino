@@ -8,7 +8,6 @@ static const char vernum[] = "v60.4.7";
 char devname[30];
 String devstr =  "video";
 
-// https://sites.google.com/a/usapiens.com/opnode/time-zones  -- find your timezone here
 String TIMEZONE = "GMT0BST,M3.5.0/01,M10.5.0/02";
 //String TIMEZONE = "MST7MDT,M3.2.0/2:00:00,M11.1.0/2:00:00";
 #define Lots_of_Stats 1
@@ -1088,7 +1087,7 @@ static void end_avi() {
     Serial.print("Extend jpg % ");  Serial.println( 100.0 * extend_jpg / frame_cnt, 1 );
     Serial.print("Bad    jpg % ");  Serial.println( 100.0 * bad_jpg / frame_cnt, 5 );
 
-    Serial.printf("Writng the index, %d frames\n", frame_cnt);
+    Serial.printf("Writting the index, %d frames\n", frame_cnt);
 
     logfile.printf("Recorded %5d frames in %5d seconds\n", frame_cnt, elapsedms / 1000);
     logfile.printf("File size is %u bytes\n", movi_size + 12 * frame_cnt + 4);
@@ -1171,7 +1170,7 @@ static void end_avi() {
 
 typedef struct struct_message {
     int id;
-    int relay;
+    int state;
 } struct_message;
 
 struct_message receivedData;
@@ -1188,8 +1187,8 @@ void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *incomingData, in
     
     Serial.print("ID: ");
     Serial.println(receivedData.id);
-    Serial.print("Relay: ");
-    Serial.println(receivedData.relay);
+    Serial.print("State: ");
+    Serial.println(receivedData.state);
 
     start_record = 1;
 }
@@ -1331,8 +1330,6 @@ void setup() {
   digitalWrite(33, HIGH);         // red light turns off when setup is complete
 
   Serial.println("  End of setup()\n\n");
-
-  start_record = 1;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1450,7 +1447,9 @@ void the_camera_loop (void* pvParameter) {
       Serial.printf("End the avi at %d.  It was %d frames, %d ms at %.2f fps...\n", millis(), frame_cnt, avi_end_time, avi_end_time - avi_start_time, fps);
       logfile.printf("End the avi at %d.  It was %d frames, %d ms at %.2f fps...\n", millis(), frame_cnt, avi_end_time, avi_end_time - avi_start_time, fps);
 
-      frame_cnt = 0;             // start recording again on the next loop
+      frame_cnt = 0;             
+
+      start_record = 0;
 
       ///////////////////  ANOTHER FRAME  //////////////////
     } else if (frame_cnt > 0 && start_record != 0) {  // another frame of the avi

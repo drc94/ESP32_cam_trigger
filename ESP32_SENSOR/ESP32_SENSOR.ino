@@ -2,7 +2,7 @@
 #include <esp_now.h>
 #include "driver/rtc_io.h"
 
-#define DEBUG_MODE
+//#define DEBUG_MODE
 
 // Dirección MAC de la cámara:
 //uint8_t broadcastAddress[] = {0xEC, 0x64, 0xC9, 0xC4, 0x0D, 0xD7};
