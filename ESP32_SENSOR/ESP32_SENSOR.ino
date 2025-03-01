@@ -1,82 +1,68 @@
 #include <WiFi.h>
 #include <esp_now.h>
+#include "driver/rtc_io.h"
 
-// Dirección MAC del receptor ESP32 (debes reemplazar con la dirección real)
+#define DEBUG_MODE
+
+// Dirección MAC de la cámara:
 //uint8_t broadcastAddress[] = {0xEC, 0x64, 0xC9, 0xC4, 0x0D, 0xD7};
+//uint8_t broadcastAddress[] = {0xCC, 0x7B, 0x5C, 0xF2, 0x2E, 0xC0};
 uint8_t broadcastAddress[] = {0xCC, 0x7B, 0x5C, 0xF2, 0x2E, 0xC0};
 
 #define BOARD_ID 1
-#define THRESHOLD 40
 
+#define WAKEUP_GPIO GPIO_NUM_33     // Only RTC IO are allowed - ESP32 Pin example
 RTC_DATA_ATTR int bootCount = 0;
-touch_pad_t touchPin;
+int attempts = 0;
 
 typedef struct struct_message {
     int id;
-    int relay;
+    int state;
 } struct_message;
 
 struct_message myData;
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+#ifdef DEBUG_MODE
   Serial.print("\r\nLast Packet Send Status: ");
+#endif
   if (status == ESP_NOW_SEND_SUCCESS) {
+    attempts = 0;
+#ifdef DEBUG_MODE
     Serial.println("Delivery success");
-    esp_deep_sleep_start();
+#endif
   }
   else 
   {
-    Serial.println("Delivery fail");
-    esp_deep_sleep_start();
+    if (attempts < 5)
+    {
+      attempts++;
+#ifdef DEBUG_MODE
+      Serial.println("Delivery fail, trying again");
+#endif
+      delay(200);
+      myData.id = BOARD_ID;
+      myData.state = 1;
+      esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
+    }
+    else
+    {
+      attempts = 0;
+    }
   }
 }
 
-void print_wakeup_reason() 
+void initComms()
 {
-  esp_sleep_wakeup_cause_t wakeup_reason;
-
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-
-  switch (wakeup_reason) 
-  {
-    case ESP_SLEEP_WAKEUP_EXT0:     Serial.println("Wakeup caused by external signal using RTC_IO"); break;
-    case ESP_SLEEP_WAKEUP_EXT1:     Serial.println("Wakeup caused by external signal using RTC_CNTL"); break;
-    case ESP_SLEEP_WAKEUP_TIMER:    Serial.println("Wakeup caused by timer"); break;
-    case ESP_SLEEP_WAKEUP_TOUCHPAD: Serial.println("Wakeup caused by touchpad"); break;
-    case ESP_SLEEP_WAKEUP_ULP:      Serial.println("Wakeup caused by ULP program"); break;
-    default:                        Serial.printf("Wakeup was not caused by deep sleep: %d\n", wakeup_reason); break;
-  }
-}
-
-void print_wakeup_touchpad() 
-{
-  touchPin = esp_sleep_get_touchpad_wakeup_status();
-
-  switch (touchPin) 
-  {
-    case 0:  Serial.println("Touch detected on GPIO 4"); break;
-    case 1:  Serial.println("Touch detected on GPIO 0"); break;
-    case 2:  Serial.println("Touch detected on GPIO 2"); break;
-    case 3:  Serial.println("Touch detected on GPIO 15"); break;
-    case 4:  Serial.println("Touch detected on GPIO 13"); break;
-    case 5:  Serial.println("Touch detected on GPIO 12"); break;
-    case 6:  Serial.println("Touch detected on GPIO 14"); break;
-    case 7:  Serial.println("Touch detected on GPIO 27"); break;
-    case 8:  Serial.println("Touch detected on GPIO 33"); break;
-    case 9:  Serial.println("Touch detected on GPIO 32"); break;
-    default: Serial.println("Wakeup not by touchpad"); break;
-  }
-}
-
-void setup() {
-  Serial.begin(115200);
-
   WiFi.mode(WIFI_STA);
+  delay(100);
   WiFi.disconnect();
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
+#ifdef DEBUG_MODE
     Serial.println("Error initializing ESP-NOW");
+#endif    
     return;
   }
 
@@ -88,61 +74,44 @@ void setup() {
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
+  peerInfo.ifidx = WIFI_IF_STA; 
 
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+  #ifdef DEBUG_MODE
     Serial.println("Error adding peer");
+  #endif
     return;
-  }
-
-  ++bootCount;
-  Serial.println("Boot number: " + String(bootCount));
-
-  //Print the wakeup reason for ESP32 and touchpad too
-  print_wakeup_reason();
-  print_wakeup_touchpad();
-
-  touchSleepWakeUpEnable(T3, THRESHOLD);
-  touchSleepWakeUpEnable(T7, THRESHOLD);
-
-  if (bootCount > 1)
-  {
-    myData.id = BOARD_ID;
-    myData.relay = 1;
-    esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
-  }
-  else
-  {
-    esp_deep_sleep_start();
   }
 }
 
-void loop() {
-  /*if (aux == 0 && ready == 0) {
-    myData.id = BOARD_ID;
-    myData.relay = 1;
+void setup() {
+#ifdef DEBUG_MODE
+  Serial.begin(115200);
+  delay(1000);
+#endif
 
-    // Send message via ESP-NOW
-    esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
-  } 
-  else if (ready == 1) 
+  initComms();
+  if (bootCount > 0)
   {
-    if ((millis() - lastTime) > timerDelay) 
-    {
-      myData.id = BOARD_ID;
-      if (aux == 0)
-      {
-        myData.relay = 1;
-        aux = 1;
-      }
-      else
-      {
-        myData.relay = 0;
-        aux = 0;
-      }
+    myData.id = BOARD_ID;
+    myData.state = 1;
+    esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
+  }
 
-      // Send message via ESP-NOW
-      esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
-      lastTime = millis();
-    }
-  }*/
+  ++bootCount;
+#ifdef DEBUG_MODE
+  Serial.println("Boot number: " + String(bootCount));
+#endif
+
+  esp_sleep_enable_ext0_wakeup(WAKEUP_GPIO, 1);  //1 = High, 0 = Low
+
+  delay(1000);
+#ifdef DEBUG_MODE
+  Serial.println("Going to sleep now");
+#endif
+  esp_deep_sleep_start();
+}
+
+void loop() {
+
 }

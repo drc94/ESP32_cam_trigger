@@ -1202,8 +1202,8 @@ void init_wifi() {
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
     delay(1000);
-    //Serial.print("MAC ADDRESS: ");
-    //Serial.println(WiFi.macAddress());
+    Serial.print("MAC ADDRESS: ");
+    Serial.println(WiFi.macAddress());
     if (esp_now_init() != ESP_OK) {
       Serial.println("ESP-NOW initialization error");
       return;
