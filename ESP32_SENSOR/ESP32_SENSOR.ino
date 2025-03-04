@@ -2,7 +2,16 @@
 #include <esp_now.h>
 #include "driver/rtc_io.h"
 
-//#define DEBUG_MODE
+#define DEBUG_MODE 0
+
+#if DEBUG_MODE
+  #define DEBUG_PRINT(x) Serial.print(x)
+  #define DEBUG_PRINTLN(x) Serial.println(x)
+  #define (x) Serial.println(x)
+#else
+  #define DEBUG_PRINT(x)
+  #define DEBUG_PRINTLN(x)
+#endif
 
 // Dirección MAC de la cámara:
 //uint8_t broadcastAddress[] = {0xEC, 0x64, 0xC9, 0xC4, 0x0D, 0xD7};
@@ -10,6 +19,9 @@
 uint8_t broadcastAddress[] = {0x08, 0xA6, 0xF7, 0xA1, 0x97, 0x08};
 
 #define BOARD_ID 1
+#define ATTEMPTS_TIME 200
+#define ATTEMPTS_NUMBER 50
+//#define WAKEUP_INTERVAL 2000
 
 #define WAKEUP_GPIO GPIO_NUM_33     // Only RTC IO are allowed - ESP32 Pin example
 RTC_DATA_ATTR int bootCount = 0;
@@ -30,24 +42,32 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     attempts = 0;
 #ifdef DEBUG_MODE
     Serial.println("Delivery success");
+    Serial.println("Going to sleep now");
 #endif
+    esp_deep_sleep_start();
   }
   else 
   {
-    if (attempts < 5)
+    if (attempts < ATTEMPTS_NUMBER)
     {
       attempts++;
 #ifdef DEBUG_MODE
       Serial.println("Delivery fail, trying again");
 #endif
-      delay(200);
+      delay(ATTEMPTS_TIME);
       myData.id = BOARD_ID;
       myData.state = 1;
       esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
     }
     else
     {
+      Serial.println("Total attempts number:");
+      Serial.println(attempts);
       attempts = 0;
+#ifdef DEBUG_MODE
+      Serial.println("Going to sleep now");
+#endif
+      esp_deep_sleep_start();
     }
   }
 }
@@ -105,11 +125,14 @@ void setup() {
 
   esp_sleep_enable_ext0_wakeup(WAKEUP_GPIO, 1);  //1 = High, 0 = Low
 
-  delay(1000);
+  if (bootCount == 1)
+  {
+    delay(1000);
 #ifdef DEBUG_MODE
-  Serial.println("Going to sleep now");
+    Serial.println("Going to sleep now");
 #endif
-  esp_deep_sleep_start();
+    esp_deep_sleep_start();
+  }
 }
 
 void loop() {
