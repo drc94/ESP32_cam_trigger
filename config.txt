@@ -1,12 +1,6 @@
-#include <pgmspace.h>
-
-////////////////////////////////
-
-//61.3
-const char config_txt[] PROGMEM = 
-R"==x==(desklens  // camera name
+desklens  // camera name
 13  // framesize  13=hd
-10  // length of video in seconds
+30  // length of video in seconds
 0  // interval - ms between recording frames 
 1  // speedup - multiply framerate 
 GMT  // timezone
@@ -35,4 +29,3 @@ GMT - timezone for dates and times on your files
   - find timezone here: 
      https://sites.google.com/a/usapiens.com/opnode/time-zones
 
-)==x==";

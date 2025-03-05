@@ -1357,7 +1357,6 @@ void initCC()
 
 
 void setup() {
-  digitalWrite(PWDN_GPIO_NUM, 1);
   DEBUG_SERIAL(115200);
   /*DEBUG_PRINTLN("\n\n---");
 
@@ -1397,23 +1396,9 @@ void setup() {
     default  : DEBUG_PRINTLN("Reset reason"); logfile.println("ESP ???"); break;
   }*/
 
-  DEBUG_PRINTLN("Init communications...");
-
-  if(active_camera)
-  {
-    digitalWrite(PWDN_GPIO_NUM, 0);
-    signal_time = millis();
-    start_record = 1;
-    initCC();
-    init_wifi();
-  }
-  else
-  {
-    init_wifi();
-    esp_sleep_enable_timer_wakeup(WAKEUP_INTERVAL);
-    delay(1000);
-    esp_deep_sleep_start();
-  }
+  signal_time = millis();
+  start_record = 1;
+  initCC();
 
 }
 
@@ -1520,7 +1505,8 @@ void the_camera_loop (void* pvParameter) {
 
       frame_cnt = 0;             // start recording again on the next loop
 
-      if (millis() - signal_time < (avi_length - 2) * 1000)
+      start_record = 0;
+      /*if (millis() - signal_time < (avi_length - 2) * 1000)
       {
         start_record = 1;
         
@@ -1531,9 +1517,9 @@ void the_camera_loop (void* pvParameter) {
         start_record = 0;
         
         active_camera = 0;
-        esp_sleep_enable_timer_wakeup(WAKEUP_INTERVAL);
-        esp_deep_sleep_start();
-      }
+        //esp_sleep_enable_timer_wakeup(WAKEUP_INTERVAL);
+        //esp_deep_sleep_start();
+      }*/
 
       ///////////////////  ANOTHER FRAME  //////////////////
     } else if (frame_cnt > 0 && start_record != 0) {  // another frame of the avi
